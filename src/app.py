@@ -54,7 +54,7 @@ def get_activities():
 
 @app.post("/activities/{activity_name}/signup")
 def signup_for_activity(activity_name: str, email: str):
-    """Sign up a student for an activity"""
+    """Sign up a student for an activity with basic validations."""
     # Validate activity exists
     if activity_name not in activities:
         raise HTTPException(status_code=404, detail="Activity not found")
@@ -62,6 +62,21 @@ def signup_for_activity(activity_name: str, email: str):
     # Get the specific activity
     activity = activities[activity_name]
 
+    # Basic email normalization and validation
+    if not isinstance(email, str) or "@" not in email:
+        raise HTTPException(status_code=400, detail="Invalid email address")
+
+    normalized_email = email.strip().lower()
+
+    # Check for duplicate registration
+    if normalized_email in (p.lower() for p in activity.get("participants", [])):
+        raise HTTPException(status_code=400, detail="Student already registered for this activity")
+
+    # Enforce max participants
+    max_p = activity.get("max_participants")
+    if isinstance(max_p, int) and len(activity.get("participants", [])) >= max_p:
+        raise HTTPException(status_code=400, detail="Activity is full")
+
     # Add student
-    activity["participants"].append(email)
-    return {"message": f"Signed up {email} for {activity_name}"}
+    activity.setdefault("participants", []).append(normalized_email)
+    return {"message": f"Signed up {normalized_email} for {activity_name}"}
